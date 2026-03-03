@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+
+# Environments
+venv/
+.env
+
+# Node
+node_modules/
+
+# Build
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.puml
+*.html
+*.json
