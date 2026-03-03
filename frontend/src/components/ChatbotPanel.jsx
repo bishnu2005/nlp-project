@@ -9,9 +9,6 @@ const ChatbotPanel = ({ modelId, currentStateId, currentVariables, onTransition 
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // STUB for Phase 6
-    const isPhase6Stub = true; // Set to false when Phase 6 is implemented
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!input.trim() || !modelId || !currentStateId) return;
@@ -20,17 +17,6 @@ const ChatbotPanel = ({ modelId, currentStateId, currentVariables, onTransition 
         setMessages(prev => [...prev, { role: 'user', text: userText }]);
         setInput('');
         setLoading(true);
-
-        if (isPhase6Stub) {
-            setTimeout(() => {
-                setMessages(prev => [...prev, {
-                    role: 'system',
-                    text: 'Chatbot: Coming in Phase 6. This feature will use sentence-transformers to map your input to model events.'
-                }]);
-                setLoading(false);
-            }, 500);
-            return;
-        }
 
         // Phase 6 actual call
         try {
@@ -61,17 +47,16 @@ const ChatbotPanel = ({ modelId, currentStateId, currentVariables, onTransition 
                     <Bot size={16} />
                     Formal Assistant
                 </h2>
-                {isPhase6Stub && <span className="text-xs font-bold text-white bg-indigo-500 px-2 rounded-full">Coming Phase 6</span>}
             </div>
 
             <div className="flex-grow p-4 overflow-y-auto flex flex-col gap-3">
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[85%] rounded-lg p-3 text-sm ${msg.role === 'user'
-                                ? 'bg-blue-600 text-white rounded-br-none'
-                                : msg.role === 'error'
-                                    ? 'bg-red-50 text-red-700 border border-red-200'
-                                    : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                            ? 'bg-blue-600 text-white rounded-br-none'
+                            : msg.role === 'error'
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : 'bg-gray-100 text-gray-800 rounded-bl-none'
                             }`}>
                             {msg.role === 'system' && msg.confidence && (
                                 <div className="text-[10px] text-gray-500 mb-1 flex justify-between">
@@ -101,7 +86,7 @@ const ChatbotPanel = ({ modelId, currentStateId, currentVariables, onTransition 
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         disabled={!modelId || !currentStateId}
-                        placeholder={isPhase6Stub ? "[STUB] Enter query..." : "What should I do next?"}
+                        placeholder={"What should I do next?"}
                         className="flex-grow border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-200"
                     />
                     <button
