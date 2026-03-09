@@ -1,10 +1,14 @@
+import os
 import json
 import logging
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pydantic import BaseModel
-from openai import OpenAI
+import google.generativeai as genai
+from dotenv import load_dotenv
 from manual_to_uml.extraction.preprocessor import Sentence
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +37,12 @@ class AmbiguityDetector:
             "otherwise", "if necessary", "as needed", "in case of", "alternatively"
         ]
         
-        try:
-            self.client = OpenAI(api_key=api_key) if api_key else None
-        except Exception:
-            self.client = None
+        resolved_key = api_key
+        if resolved_key:
+            genai.configure(api_key=resolved_key)
+            self.model = genai.GenerativeModel("gemini-1.5-flash")
+        else:
+            self.model = None
 
     def _symbolic_checks(self, sentence: Sentence) -> List[AmbiguityFlag]:
         flags = []
@@ -72,7 +78,7 @@ class AmbiguityDetector:
         return flags
 
     def _llm_check(self, sentence: Sentence) -> Optional[AmbiguityFlag]:
-        if not self.client:
+        if not self.model:
             # Mock LLM check
             if "mock_multiple" in sentence.text:
                 return AmbiguityFlag(
@@ -86,6 +92,7 @@ class AmbiguityDetector:
             return None
 
         prompt = f"""
+        You are a linguistics ambiguity detector. Respond in strict JSON.
         Analyze the following procedural instruction for ambiguity. 
         Does this sentence have multiple valid interpretations as a formal state machine instruction?
         If yes, list them.
@@ -95,17 +102,15 @@ class AmbiguityDetector:
         """
         
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=[
-                    {"role": "system", "content": "You are a linguistics ambiguity detector. Respond in strict JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0,
-                response_format={ "type": "json_object" }
-            )
+            response = self.model.generate_content(prompt)
+            result_str = response.text
             
-            result_str = response.choices[0].message.content
+            # Strip Markdown fences if the LLM leaked them
+            if result_str.startswith("```json"):
+                result_str = result_str[7:-3].strip()
+            elif result_str.startswith("```"):
+                result_str = result_str[3:-3].strip()
+            
             data = json.loads(result_str)
             
             if data.get("ambiguous", False) and data.get("confidence", 0.0) > 0.7:

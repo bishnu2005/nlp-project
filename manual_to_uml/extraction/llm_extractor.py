@@ -1,9 +1,15 @@
+import os
 import json
 import logging
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
-from openai import OpenAI
+import google.generativeai as genai
+from dotenv import load_dotenv
 from manual_to_uml.extraction.preprocessor import Sentence
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +73,13 @@ Output:
 class LLMExtractor:
     def __init__(self, api_key: Optional[str] = None):
         # We allow fallback to a mock for initial disconnected testing
-        self.api_key = api_key
-        try:
-            self.client = OpenAI(api_key=api_key) if api_key else None
-        except Exception:
-            self.client = None
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+        self.use_mock = not self.api_key
 
     def _call_llm(self, prompt: str) -> str:
-        if not self.client:
+        if self.use_mock:
             # Mock mode - deterministic return for testing
             mock_resp = {
                 "sentence_id": "s_mock",
@@ -89,16 +94,10 @@ class LLMExtractor:
             return json.dumps(mock_resp)
 
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT + "\n" + FEW_SHOT_EXAMPLES},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0,
-                response_format={ "type": "json_object" }
-            )
-            return response.choices[0].message.content
+            full_prompt = SYSTEM_PROMPT + "\n\n" + FEW_SHOT_EXAMPLES + "\n\n" + prompt
+            response = model.generate_content(full_prompt)
+            output = response.text
+            return output
         except Exception as e:
             logger.error(f"LLM Call failed: {e}")
             raise e

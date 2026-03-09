@@ -1,13 +1,16 @@
-fastapi==0.110.0
-uvicorn==0.29.0
-pydantic==2.6.4
-z3-solver==4.12.2.0
-networkx==3.2.1
-jinja2==3.1.3
-pytest==8.1.1
-httpx==0.27.0
-spacy==3.7.4
-coreferee==1.4.0
-openai==1.14.0
-sentence-transformers==2.5.1
-numpy<2.0.0
+fastapi>=0.110.0,<1.0.0
+uvicorn>=0.29.0,<1.0.0
+pydantic>=2.6.0,<3.0.0
+z3-solver>=4.12.0.0
+networkx>=3.2.0,<4.0.0
+jinja2>=3.1.3,<4.0.0
+pytest>=8.1.0,<9.0.0
+httpx>=0.27.0,<1.0.0
+spacy>=3.7.0,<4.0.0
+google-generativeai>=0.8.0
+python-dotenv>=1.0.0
+sentence-transformers>=2.5.0,<6.0.0
+numpy
+# NOTE: coreferee requires spacy<3.6 which conflicts with pydantic v2 (needs spacy>=3.7).
+# Install separately with: pip install coreferee --no-deps
+# The codebase handles coreferee load failure gracefully in coref_resolver.py.

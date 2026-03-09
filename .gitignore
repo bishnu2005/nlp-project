@@ -26,9 +26,12 @@ MANIFEST
 # Environment Variables
 .env
 .env.local
+.env.*
 
 # Virtual environments
 venv/
+venv_new/
+venv*/
 env/
 ENV/
 env.bak/
@@ -48,3 +51,11 @@ venv.bak/
 coverage.xml
 htmlcov/
 .coverage
+
+# Temp/debug files
+pip_output.txt
+test_output.txt
+pytest_extraction.py
+
+# Gemini agent artifacts
+.gemini/
