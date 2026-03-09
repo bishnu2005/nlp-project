@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import logging
@@ -13,7 +13,7 @@ class IntentMatch(BaseModel):
     confidence: float
     alternatives: List[Tuple[str, float]]  # other matches + scores
 
-CONFIDENCE_THRESHOLD = 0.80
+CONFIDENCE_THRESHOLD = 0.65  # Lowered from 0.80 for symptom/natural language matching
 
 class IntentMapper:
     def __init__(self):
@@ -27,6 +27,32 @@ class IntentMapper:
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
+    def _generate_descriptive_phrases(self, event_name: str, state_names: List[str]) -> List[str]:
+        """Generate human-readable symptom/action variations from raw FSM event/state names."""
+        clean_event = event_name.replace("_", " ").lower()
+        phrases = [
+            clean_event,
+            f"I want to {clean_event}",
+            f"How do I {clean_event}?",
+            f"The system is showing {clean_event}",
+            f"I see a {clean_event}",
+            f"{clean_event} happened"
+        ]
+        
+        # Add some state-specific context if it's a known state
+        for state in state_names:
+            clean_state = state.replace("_", " ").lower()
+            if clean_state in clean_event:
+                phrases.append(f"the {clean_state} is having an issue")
+                
+        # Common symptom mappings based on project prompt requirements
+        if "leak" in clean_event: phrases.extend(["water is leaking", "it is leaking", "spraying water"])
+        if "warning" in clean_event or "alert" in clean_event or "light" in clean_event: phrases.extend(["light is blinking", "red light", "warning light is on"])
+        if "temp" in clean_event or "heat" in clean_event: phrases.extend(["is overheating", "too hot", "temperature high"])
+        if "start" in clean_event and "fail" in clean_event: phrases.extend(["won't start", "refuses to start", "failed to turn on"])
+        
+        return phrases
+
     def map_intent(self, user_input: str, ibr: IBR, current_state: str) -> IntentMatch:
         if not self.model:
             # Fallback mock for testing environments where torch isn't available
@@ -37,41 +63,58 @@ class IntentMapper:
                 alternatives=[]
             )
 
-        # Build corpus of possible events from current state
-        # Also include all events in the system for better context error reporting
-        # Though we prioritize current state events
-        
+        logger.info(f"[IntentMapper] Analyzing query: '{user_input}' (Current State: {current_state})")
+
         valid_transitions = [t for t in ibr.transitions if t.from_state == current_state]
         valid_events = list(set([t.event for t in valid_transitions]))
-        
         all_events = list(set([t.event for t in ibr.transitions]))
-        other_events = [e for e in all_events if e not in valid_events]
+        all_states = [s.id for s in ibr.states]
         
-        # In a real NLP agent, we might encode "How do I [event_name]" or similar
-        # For this formal matching, we just match the raw event name against user input
-        
-        # If no valid events (terminal state or disconnected)
         if not all_events:
+            logger.info("[IntentMapper] No events exist in the graph.")
             return IntentMatch(matched_event="", matched_state=None, confidence=0.0, alternatives=[])
-            
-        corpus = valid_events + other_events
-        corpus_clean = [e.replace("_", " ") for e in corpus]
+
+        # Map phrase -> underlying event
+        phrase_to_event: Dict[str, str] = {}
+        
+        for event in all_events:
+            phrases = self._generate_descriptive_phrases(event, all_states)
+            for phrase in phrases:
+                # If phrase exists, override only if current event is in valid_events 
+                # (prioritizes active state transitions)
+                if phrase not in phrase_to_event or event in valid_events:
+                    phrase_to_event[phrase] = event
+
+        corpus = list(phrase_to_event.keys())
         
         try:
             user_embedding = self.model.encode([user_input])[0]
-            corpus_embeddings = self.model.encode(corpus_clean)
+            corpus_embeddings = self.model.encode(corpus)
             
-            scores = []
+            # Map event -> best score achieved by any of its phrases
+            event_scores: Dict[str, float] = {}
             for idx, emb in enumerate(corpus_embeddings):
                 sim = float(self._cosine_similarity(user_embedding, emb))
-                scores.append((corpus[idx], sim))
+                phrase = corpus[idx]
+                event = phrase_to_event[phrase]
                 
+                # Boost if it belongs to a valid transition in current state
+                if event in valid_events:
+                    sim += 0.05
+                    
+                if event not in event_scores or sim > event_scores[event]:
+                    event_scores[event] = sim
+                
+            scores = [(evt, score) for evt, score in event_scores.items()]
             scores.sort(key=lambda x: x[1], reverse=True)
             
             best_match, best_score = scores[0]
             
+            logger.info(f"[IntentMapper] Best match: '{best_match}' (confidence: {best_score:.3f})")
+            
             alternatives = []
             if best_score < CONFIDENCE_THRESHOLD:
+                logger.info(f"[IntentMapper] Match below threshold ({CONFIDENCE_THRESHOLD}).")
                 alternatives = scores[1:min(4, len(scores))]
                 
             return IntentMatch(

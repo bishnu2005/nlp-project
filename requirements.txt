@@ -11,6 +11,9 @@ google-generativeai>=0.8.0
 python-dotenv>=1.0.0
 sentence-transformers>=2.5.0,<6.0.0
 numpy
+python-multipart>=0.0.9
+PyMuPDF>=1.23.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
 # NOTE: coreferee requires spacy<3.6 which conflicts with pydantic v2 (needs spacy>=3.7).
 # Install separately with: pip install coreferee --no-deps
-# The codebase handles coreferee load failure gracefully in coref_resolver.py.

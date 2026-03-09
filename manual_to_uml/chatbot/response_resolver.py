@@ -7,16 +7,20 @@ def resolve_response(intent: IntentMatch, ibr: IBR, current_state: str, variable
     if intent.confidence < CONFIDENCE_THRESHOLD:
         if intent.alternatives:
             alt_list = ", ".join([f"'{a[0]}'" for a in intent.alternatives])
-            return f"I am not sure what you mean. Did you mean to perform one of these actions: '{intent.matched_event}', {alt_list}?"
+            return f"I am not sure what you mean. Did you mean one of these actions: '{intent.matched_event}', {alt_list}?"
         else:
-            return "I don't understand that instruction."
+            return "I don't understand that instruction. Could you rephrase your problem or action?"
             
     # Check if event is valid from current state
     if intent.matched_state != current_state:
-        # It means matched_event was found, but not for this state
-        valid_events = list(set([t.event for t in ibr.transitions if t.from_state == current_state]))
-        event_list = ", ".join(valid_events) if valid_events else "None (Terminal State)"
-        return f"That action '{intent.matched_event}' is not valid in the current state '{current_state}'. Valid actions are: [{event_list}]."
+        # FSM Limitation Enforcement
+        valid_transitions = [t for t in ibr.transitions if t.from_state == current_state]
+        if not valid_transitions:
+            return f"This action is not valid in the current state '{current_state}'. This state has no available actions."
+            
+        valid_events = list(set([t.event for t in valid_transitions]))
+        event_list = ", ".join(valid_events)
+        return f"This action '{intent.matched_event}' is not valid in the current state '{current_state}'. Valid actions are: [{event_list}]."
         
     # Check guards
     possible_transitions = [t for t in ibr.transitions if t.from_state == current_state and t.event == intent.matched_event]
@@ -33,7 +37,7 @@ def resolve_response(intent: IntentMatch, ibr: IBR, current_state: str, variable
             break
             
     if not valid_transition:
-        return f"The action '{intent.matched_event}' is currently blocked by guard conditions based on current variable values."
+        return f"The action '{intent.matched_event}' is blocked by guard conditions based on current variables."
         
     next_state_name = valid_transition.to_state
     
@@ -44,7 +48,14 @@ def resolve_response(intent: IntentMatch, ibr: IBR, current_state: str, variable
             state_obj = s.name
             break
             
-    action_text = f" and performing action '{valid_transition.action}'" if valid_transition.action else ""
+    # Translate raw event to human phrase
+    human_event = intent.matched_event.replace("_", " ")
+    action_text = f"by performing action '{valid_transition.action}' " if valid_transition.action else ""
     
-    response = f"Executing '{intent.matched_event}'{action_text}. Transitioning to {state_obj}."
-    return response
+    # Create natural, procedural instruction
+    if "leak" in human_event or "warning" in human_event or "fail" in human_event or "high" in human_event or "overheat" in human_event:
+         # Symptom/Emergency pattern
+         return f"A {human_event} condition has been detected. According to the procedure, you should transition to '{state_obj}' immediately {action_text}."
+    else:
+         # Normal action pattern
+         return f"Understood. Executing '{human_event}'. According to the procedure, the system will transition to '{state_obj}' {action_text}."

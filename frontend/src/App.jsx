@@ -4,7 +4,8 @@ import GraphPanel from './components/GraphPanel'
 import SimulatorPanel from './components/SimulatorPanel'
 import SourcePanel from './components/SourcePanel'
 import ChatbotPanel from './components/ChatbotPanel'
-import { Upload, Cpu } from 'lucide-react'
+import CompileModal from './components/CompileModal'
+import { Upload, Cpu, PenTool } from 'lucide-react'
 import './App.css'
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
     const [sourceSentences, setSourceSentences] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [isCompileModalOpen, setIsCompileModalOpen] = useState(false)
     const fileInputRef = useRef(null)
 
     const handleFileUpload = async (event) => {
@@ -27,33 +29,45 @@ function App() {
         try {
             const text = await file.text()
             const ibrData = JSON.parse(text)
-
-            const response = await axios.post('/api/model/load', ibrData)
-
-            setModelData(ibrData)
-            setModelId(response.data.model_id)
-            setCurrentStateId(response.data.initial_state)
-
-            // Initialize variables
-            const initialVars = {}
-            if (ibrData.variables) {
-                Object.entries(ibrData.variables).forEach(([key, def]) => {
-                    if (def.type === 'int' || def.type === 'float') initialVars[key] = 0
-                    else if (def.type === 'boolean') initialVars[key] = false
-                    else if (def.type === 'enum' && def.enum_values?.length > 0) initialVars[key] = def.enum_values[0]
-                    else initialVars[key] = ''
-                })
-            }
-            setCurrentVariables(initialVars)
-
-            // Load source sentences for initial state
-            fetchSourceSentences(response.data.model_id, response.data.initial_state)
-
+            await loadIbrIntoSimulator(ibrData)
         } catch (err) {
             setError(err.response?.data?.detail || err.message || 'Failed to load model File')
         } finally {
             setLoading(false)
             if (fileInputRef.current) fileInputRef.current.value = ''
+        }
+    }
+
+    const loadIbrIntoSimulator = async (ibrData) => {
+        const response = await axios.post('/api/model/load', ibrData)
+
+        setModelData(ibrData)
+        setModelId(response.data.model_id)
+        setCurrentStateId(response.data.initial_state)
+
+        // Initialize variables
+        const initialVars = {}
+        if (ibrData.variables) {
+            Object.entries(ibrData.variables).forEach(([key, def]) => {
+                if (def.type === 'int' || def.type === 'float') initialVars[key] = 0
+                else if (def.type === 'boolean') initialVars[key] = false
+                else if (def.type === 'enum' && def.enum_values?.length > 0) initialVars[key] = def.enum_values[0]
+                else initialVars[key] = ''
+            })
+        }
+        setCurrentVariables(initialVars)
+
+        // Load source sentences for initial state
+        fetchSourceSentences(response.data.model_id, response.data.initial_state)
+    }
+
+    const handleCompileSuccess = async (ibrData, verificationData) => {
+        try {
+            await loadIbrIntoSimulator(ibrData)
+            // Could optionally show verification data via toast here
+            console.log("Compilation verification results:", verificationData)
+        } catch (err) {
+            setError(err.response?.data?.detail || err.message || 'Failed to load compiled model API')
         }
     }
 
@@ -99,6 +113,13 @@ function App() {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setIsCompileModalOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2 shadow-sm border border-indigo-700"
+                    >
+                        <PenTool size={16} /> Compile Manual
+                    </button>
+                    <div className="w-px h-6 bg-slate-600 mx-1"></div>
                     <input
                         type="file"
                         accept=".json"
@@ -108,7 +129,7 @@ function App() {
                     />
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2 shadow-sm"
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2 shadow-sm border border-slate-600"
                     >
                         <Upload size={16} /> Load IBR Model
                     </button>
@@ -166,6 +187,12 @@ function App() {
                 </div>
 
             </main>
+
+            <CompileModal
+                isOpen={isCompileModalOpen}
+                onClose={() => setIsCompileModalOpen(false)}
+                onCompileSuccess={handleCompileSuccess}
+            />
         </div>
     )
 }
