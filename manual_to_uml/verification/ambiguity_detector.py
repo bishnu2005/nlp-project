@@ -40,7 +40,7 @@ class AmbiguityDetector:
         resolved_key = api_key
         if resolved_key:
             genai.configure(api_key=resolved_key)
-            self.model = genai.GenerativeModel("gemini-1.5-flash")
+            self.model = genai.GenerativeModel("gemini-2.5-flash")
         else:
             self.model = None
 
