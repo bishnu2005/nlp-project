@@ -121,11 +121,18 @@ async def compile_manual(
     extractions = extractor.extract_all(sentences)
     logger.info(f"[LLM] Gemini extraction completed — {len(extractions)} results")
 
+    # Step 3b: State Abstraction (Solve State Explosion)
+    logger.info("[Compile] Step 3b: Abstracting extractions into architectural FSM modes...")
+    from manual_to_uml.extraction.state_abstractor import StateAbstractor
+    abstractor = StateAbstractor()
+    abstracted_extractions = abstractor.abstract(extractions, sentences)
+    logger.info(f"[Compile] Abstraction compressed {len(extractions)} extractions to {len(abstracted_extractions)} state blocks")
+
     # Step 4: Assemble IBR
     logger.info("[Compile] Step 4: Assembling IBR from extractions...")
     from manual_to_uml.extraction.ibr_assembler import IBRAssembler
     assembler = IBRAssembler()
-    ibr, human_review_flags = assembler.assemble(extractions, sentences)
+    ibr, human_review_flags = assembler.assemble(abstracted_extractions, sentences)
     logger.info(f"[Compile] IBR assembled: {len(ibr.states)} states, {len(ibr.transitions)} transitions")
 
     # Step 5: Run verification pipeline (structural + Z3)

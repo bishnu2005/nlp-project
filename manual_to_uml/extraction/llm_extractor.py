@@ -22,52 +22,40 @@ class ExtractionResult(BaseModel):
     variables_mentioned: List[str] = []
     confidence: float
     ambiguity_flags: List[str] = []
+    entry_action: Optional[str] = None
 
-SYSTEM_PROMPT = """You are a formal methods extraction engine. Extract structured behavioral primitives from procedural text. 
-Return ONLY valid JSON matching the ExtractionResult schema. No preamble, no explanation, no markdown fences."""
+SYSTEM_PROMPT = """You are a formal methods extraction engine. Extract structured behavioral primitives from a batch of procedural text sentences. 
+Return ONLY a valid JSON ARRAY of objects, where each object matches the ExtractionResult schema corresponding to an input sentence. No preamble, no explanation, no markdown fences."""
 
 FEW_SHOT_EXAMPLES = """
-Example 1:
-Input: [s001] Open the access panel by turning the latch counterclockwise.
-Output:
-{
-  "sentence_id": "s001",
-  "states_mentioned": ["access_panel_closed", "access_panel_open"],
-  "transitions_implied": [{"from": "access_panel_closed", "to": "access_panel_open", "event": "turn_latch_counterclockwise"}],
-  "guards_implied": [],
-  "events_implied": ["turn_latch_counterclockwise"],
-  "variables_mentioned": [],
-  "confidence": 0.9,
-  "ambiguity_flags": []
-}
+Example:
+Input:
+[s001] Open the access panel by turning the latch counterclockwise.
+[s002] If the filter indicator light is red, replace the filter.
 
-Example 2:
-Input: [s002] If the filter indicator light is red, replace the filter.
 Output:
-{
-  "sentence_id": "s002",
-  "states_mentioned": ["filter_nominal", "filter_replaced"],
-  "transitions_implied": [{"from": "filter_nominal", "to": "filter_replaced", "event": "replace_filter"}],
-  "guards_implied": [{"transition_event": "replace_filter", "condition": "filter_indicator_light == 'red'"}],
-  "events_implied": ["replace_filter"],
-  "variables_mentioned": ["filter_indicator_light"],
-  "confidence": 0.85,
-  "ambiguity_flags": []
-}
-
-Example 3:
-Input: [s003] If any error code appears, note the code and shut down the system immediately.
-Output:
-{
-  "sentence_id": "s003",
-  "states_mentioned": ["running", "shut_down", "error_state"],
-  "transitions_implied": [{"from": "running", "to": "shut_down", "event": "shut_down_system"}],
-  "guards_implied": [{"transition_event": "shut_down_system", "condition": "error_code != null"}],
-  "events_implied": ["shut_down_system", "note_code"],
-  "variables_mentioned": ["error_code"],
-  "confidence": 0.9,
-  "ambiguity_flags": []
-}
+[
+  {
+    "sentence_id": "s001",
+    "states_mentioned": ["access_panel_closed", "access_panel_open"],
+    "transitions_implied": [{"from": "access_panel_closed", "to": "access_panel_open", "event": "turn_latch_counterclockwise"}],
+    "guards_implied": [],
+    "events_implied": ["turn_latch_counterclockwise"],
+    "variables_mentioned": [],
+    "confidence": 0.9,
+    "ambiguity_flags": []
+  },
+  {
+    "sentence_id": "s002",
+    "states_mentioned": ["filter_nominal", "filter_replaced"],
+    "transitions_implied": [{"from": "filter_nominal", "to": "filter_replaced", "event": "replace_filter"}],
+    "guards_implied": [{"transition_event": "replace_filter", "condition": "filter_indicator_light == 'red'"}],
+    "events_implied": ["replace_filter"],
+    "variables_mentioned": ["filter_indicator_light"],
+    "confidence": 0.85,
+    "ambiguity_flags": []
+  }
+]
 """
 
 class LLMExtractor:
@@ -81,8 +69,8 @@ class LLMExtractor:
     def _call_llm(self, prompt: str) -> str:
         if self.use_mock:
             # Mock mode - deterministic return for testing
-            mock_resp = {
-                "sentence_id": "s_mock",
+            mock_resp = [{
+                "sentence_id": "mock",
                 "states_mentioned": ["state_a", "state_b"],
                 "transitions_implied": [{"from": "state_a", "to": "state_b", "event": "mock_event"}],
                 "guards_implied": [],
@@ -90,7 +78,7 @@ class LLMExtractor:
                 "variables_mentioned": ["mock_var"],
                 "confidence": 0.8,
                 "ambiguity_flags": []
-            }
+            }]
             return json.dumps(mock_resp)
 
         try:
@@ -102,8 +90,9 @@ class LLMExtractor:
             logger.error(f"LLM Call failed: {e}")
             raise e
 
-    def extract_sentence(self, sentence: Sentence) -> ExtractionResult:
-        prompt = f"Input: [{sentence.id}] {sentence.text}"
+    def extract_batch(self, sentences: List[Sentence]) -> List[ExtractionResult]:
+        import time
+        prompt = "Input Batch:\n" + "\n".join([f"[{s.id}] {s.text}" for s in sentences])
         
         max_retries = 3
         for attempt in range(max_retries):
@@ -116,26 +105,52 @@ class LLMExtractor:
                 elif result_str.startswith("```"):
                     result_str = result_str[3:-3].strip()
                     
-                data = json.loads(result_str)
-                # Ensure sentence_id matches
-                data["sentence_id"] = sentence.id
-                return ExtractionResult(**data)
+                data_list = json.loads(result_str)
+                if not isinstance(data_list, list):
+                    raise ValueError("Output must be a JSON array.")
+                
+                results = []
+                # Ensure we only process valid dicts
+                for data in data_list:
+                    if isinstance(data, dict):
+                        # Graceful fallback for missing fields in nested structures
+                        if "sentence_id" not in data:
+                            continue
+                        results.append(ExtractionResult(**data))
+                return results
                 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Failed to parse LLM output (Attempt {attempt+1}/{max_retries}): {e}")
-                # Append error feedback to prompt for next retry
-                prompt += f"\n\nERROR IN PREVIOUS ATTEMPT: Output must be strictly valid JSON matching the schema. Error was: {e}. Do not include markdown codeblocks."
+                prompt += f"\n\nERROR IN PREVIOUS ATTEMPT: Output must be strictly valid JSON ARRAY matching the schema. Error was: {e}. Do not include markdown codeblocks."
+                time.sleep(2)
                 
-        # If all retries fail, return an empty stub
-        logger.error(f"Failed to extract primitives for sentence {sentence.id} after {max_retries} attempts.")
-        return ExtractionResult(
-            sentence_id=sentence.id,
+        # If all retries fail, return empty stubs
+        logger.error(f"Failed to extract primitives for batch after {max_retries} attempts.")
+        return [ExtractionResult(
+            sentence_id=s.id,
             confidence=0.0,
             ambiguity_flags=["LLM_EXTRACTION_FAILED"]
-        )
+        ) for s in sentences]
 
     def extract_all(self, sentences: List[Sentence]) -> List[ExtractionResult]:
+        import time
         results = []
-        for s in sentences:
-            results.append(self.extract_sentence(s))
+        batch_size = 50 # Batch processing to avoid Gemini 5 RPM limit
+        
+        for i in range(0, len(sentences), batch_size):
+            batch = sentences[i:i + batch_size]
+            logger.info(f"Extracting batch {i//batch_size + 1}/{((len(sentences) - 1)//batch_size) + 1} (size {len(batch)})...")
+            
+            try:
+                batch_results = self.extract_batch(batch)
+                results.extend(batch_results)
+            except Exception as e:
+                logger.error(f"Batch extraction failed: {e}")
+                
+            # API Rate limit protection (Gemini free tier: ~5 RPM)
+            # Sleep 12.5 seconds between batches to ensure we stay under the limit
+            if i + batch_size < len(sentences):
+                logger.info("Sleeping for 12.5 seconds to respect API rate limits...")
+                time.sleep(12.5)
+                
         return results

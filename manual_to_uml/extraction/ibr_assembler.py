@@ -38,11 +38,17 @@ class IBRAssembler:
                     states_dict[state_name] = State(
                         id=state_name, 
                         name=state_name.replace("_", " ").title(),
-                        source_sentence_ids=[res.sentence_id]
+                        source_sentence_ids=[res.sentence_id],
+                        entry_action=res.entry_action
                     )
                 else:
                     if res.sentence_id not in states_dict[state_name].source_sentence_ids:
                         states_dict[state_name].source_sentence_ids.append(res.sentence_id)
+                    # Merge entry actions if multiple blocks map to the same state
+                    if res.entry_action and states_dict[state_name].entry_action and res.entry_action not in states_dict[state_name].entry_action:
+                        states_dict[state_name].entry_action += "\n" + res.entry_action
+                    elif res.entry_action and not states_dict[state_name].entry_action:
+                        states_dict[state_name].entry_action = res.entry_action
 
         # 2. Second pass: Collect transitions and parse guards
         t_counter = 1
@@ -65,6 +71,9 @@ class IBRAssembler:
                         cond_str = g.get("condition")
                         if cond_str:
                             try:
+                                # Normalize C-style operators often returned by LLMs
+                                cond_str = cond_str.replace("&&", " AND ").replace("||", " OR ")
+                                
                                 # Ensure all variables used in guard are registered
                                 # We'll do a sloppy auto-register just in case
                                 guard_node = parse_guard(cond_str, variables_dict)

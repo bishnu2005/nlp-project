@@ -28,9 +28,29 @@ app.add_middleware(
 from manual_to_uml.simulation.compile_endpoint import compile_router
 app.include_router(compile_router)
 
-# In-memory storage for loaded models
-# Real app would use a database
-models_db: Dict[str, IBR] = {}
+# In-memory storage for loaded sessions
+sessions_db: Dict[str, 'SimulatorSession'] = {}
+
+class SimulatorSession:
+    def __init__(self, session_id: str, ibr: IBR, initial_state: str):
+        self.session_id = session_id
+        self.ibr = ibr
+        self.current_state = initial_state
+        self.variable_values = {}
+        for name, var in ibr.variables.items():
+            if var.type == VariableType.INT: self.variable_values[name] = 0
+            elif var.type == VariableType.FLOAT: self.variable_values[name] = 0.0
+            elif var.type == VariableType.BOOLEAN: self.variable_values[name] = False
+            else: self.variable_values[name] = ""
+        self.history = []
+
+    def get_valid_transitions(self) -> List[Transition]:
+        valid = []
+        possible = [t for t in self.ibr.transitions if t.from_state == self.current_state]
+        for t in possible:
+            if not t.guard or evaluate_guard_concrete(t.guard, self.ibr.variables, self.variable_values):
+                valid.append(t)
+        return valid
 
 # Schema Definitions for API
 
@@ -109,8 +129,7 @@ def evaluate_guard_concrete(guard, variables_registry, variable_values) -> bool:
 
 @app.post("/api/model/load", response_model=LoadModelResponse)
 def load_model(ibr: IBR):
-    model_id = str(uuid.uuid4())
-    models_db[model_id] = ibr
+    session_id = str(uuid.uuid4())
     
     # Find initial state
     initial_states = [s for s in ibr.states if s.is_initial]
@@ -119,104 +138,97 @@ def load_model(ibr: IBR):
         
     initial_state = initial_states[0]
     
-    # Find valid actions from initial state
-    valid_actions = list(set([t.event for t in ibr.transitions if t.from_state == initial_state.id]))
+    session = SimulatorSession(session_id, ibr, initial_state.id)
+    sessions_db[session_id] = session
     
-    logger.info(f"Loaded model {model_id} with initial state {initial_state.id}")
+    # Calculate initially valid actions
+    valid_transitions = session.get_valid_transitions()
+    valid_actions = list(set([t.event for t in valid_transitions]))
+    
+    logger.info(f"Loaded session {session_id} with initial state {initial_state.id}")
     return LoadModelResponse(
-        model_id=model_id,
+        model_id=session_id,  # Keep field name for frontend compatibility
         initial_state=initial_state.id,
         valid_actions=valid_actions
     )
 
 @app.get("/api/model/{model_id}/state", response_model=StateResponse)
-def get_model_state(model_id: str, current_state: str):
-    if model_id not in models_db:
-        raise HTTPException(status_code=404, detail="Model not found")
+def get_model_state(model_id: str, current_state: Optional[str] = None):
+    if model_id not in sessions_db:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-    ibr = models_db[model_id]
+    session = sessions_db[model_id]
     
-    # Verify state exists
-    state_exists = any(s.id == current_state for s in ibr.states)
-    if not state_exists:
-        raise HTTPException(status_code=404, detail=f"State '{current_state}' not found in model")
+    # Sync frontend state if provided (some frontend logic might override it)
+    if current_state and current_state != session.current_state:
+        state_exists = any(s.id == current_state for s in session.ibr.states)
+        if not state_exists:
+            raise HTTPException(status_code=404, detail=f"State '{current_state}' not found in model")
+        session.current_state = current_state
         
-    valid_transitions = [
+    # Dynamically recompute valid transitions
+    valid_trans = session.get_valid_transitions()
+    valid_transitions_summary = [
         TransitionSummary(event=t.event, target_state=t.to_state)
-        for t in ibr.transitions if t.from_state == current_state
+        for t in valid_trans
     ]
     
-    # For a stateless API, variable_values is generally passed from client, 
-    # but the API contract asks us to return them here. We return defaults/schema info.
-    # The client persists the actual values.
-    # To satisfy the literal request, we return empty {} or defaults.
-    variable_values = {}
-    for name, var in ibr.variables.items():
-        if var.type == VariableType.INT: variable_values[name] = 0
-        elif var.type == VariableType.FLOAT: variable_values[name] = 0.0
-        elif var.type == VariableType.BOOLEAN: variable_values[name] = False
-        else: variable_values[name] = ""
-    
     return StateResponse(
-        current_state=current_state,
-        valid_transitions=valid_transitions,
-        variable_values=variable_values
+        current_state=session.current_state,
+        valid_transitions=valid_transitions_summary,
+        variable_values=session.variable_values
     )
 
 @app.post("/api/model/{model_id}/transition", response_model=TransitionResponse)
 def compute_transition(model_id: str, current_state: str, request: TransitionRequest):
-    if model_id not in models_db:
-        raise HTTPException(status_code=404, detail="Model not found")
+    if model_id not in sessions_db:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-    ibr = models_db[model_id]
+    session = sessions_db[model_id]
     
-    # Find active transitions for this event from this state
-    possible_transitions = [t for t in ibr.transitions if t.from_state == current_state and t.event == request.event]
+    # Update session variables from request
+    session.variable_values.update(request.variable_values)
+    session.current_state = current_state
     
-    if not possible_transitions:
-        logger.warning(f"Invalid transition attempted: {request.event} from {current_state}")
-        # Explicit 409 conflict requirement per prompt specifications
-        raise HTTPException(status_code=409, detail=f"Event '{request.event}' is not valid from state '{current_state}'")
-        
-    guard_evaluations = {}
-    valid_transitions = []
+    # Recompute valid transitions dynamically
+    valid_trans = session.get_valid_transitions()
     
-    for t in possible_transitions:
-        if t.guard:
-            passed = evaluate_guard_concrete(t.guard, ibr.variables, request.variable_values)
-            guard_evaluations[t.id] = passed
-            if passed:
-                valid_transitions.append(t)
+    # Filter to requested event
+    matching_trans = [t for t in valid_trans if t.event == request.event]
+    
+    if not matching_trans:
+        # It's invalid. Determine if it's due to guard failure or just completely invalid event.
+        possible_all = [t for t in session.ibr.transitions if t.from_state == current_state and t.event == request.event]
+        if not possible_all:
+            raise HTTPException(status_code=409, detail=f"Event '{request.event}' is not valid from state '{current_state}'")
         else:
-            guard_evaluations[t.id] = True
-            valid_transitions.append(t)
-            
-    if not valid_transitions:
-        failed_guards = [t.id for t, passed in guard_evaluations.items() if not passed]
-        logger.warning(f"Transition guards failed: {failed_guards}")
-        raise HTTPException(
-             status_code=409, 
-             detail={
-                 "message": "Transition rejected: Guards failed.",
-                 "guard_evaluation": guard_evaluations
-             }
-        )
+            raise HTTPException(
+                 status_code=409, 
+                 detail={
+                     "message": "Transition rejected: Guards failed.",
+                     "guard_evaluation": {t.id: False for t in possible_all}
+                 }
+            )
         
-    # If multiple valid, we just take the first in a deterministic model (or behavior should be flagged by verification)
-    selected_transition = valid_transitions[0]
+    selected_transition = matching_trans[0]
+    
+    # Apply transition state change immediately
+    session.current_state = selected_transition.to_state
+    session.history.append((current_state, request.event, session.current_state))
     
     return TransitionResponse(
         success=True,
-        new_state=selected_transition.to_state,
-        guard_evaluation=guard_evaluations
+        new_state=session.current_state,
+        guard_evaluation={selected_transition.id: True}
     )
 
 @app.get("/api/model/{model_id}/traceability/{state_id}", response_model=TraceabilityResponse)
 def get_traceability(model_id: str, state_id: str):
-    if model_id not in models_db:
-        raise HTTPException(status_code=404, detail="Model not found")
+    if model_id not in sessions_db:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-    ibr = models_db[model_id]
+    session = sessions_db[model_id]
+    ibr = session.ibr
     
     state = next((s for s in ibr.states if s.id == state_id), None)
     if not state:
@@ -246,10 +258,11 @@ class ChatbotQueryResponse(BaseModel):
 
 @app.post("/api/chatbot/query", response_model=ChatbotQueryResponse)
 def chatbot_query(request: ChatbotQueryRequest):
-    if request.model_id not in models_db:
-        raise HTTPException(status_code=404, detail="Model not found")
+    if request.model_id not in sessions_db:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-    ibr = models_db[request.model_id]
+    session = sessions_db[request.model_id]
+    ibr = session.ibr
     
     # Verify state
     if not any(s.id == request.current_state for s in ibr.states):

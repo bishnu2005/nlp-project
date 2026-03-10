@@ -194,9 +194,6 @@ class Parser:
         id_token = self.current_token
         self.eat(TokenType.IDENTIFIER)
         var_name = id_token.value
-        
-        if var_name not in self.registry:
-            self.error(f"Unknown variable '{var_name}'", id_token.position)
             
         op_token = self.current_token
         self.eat(TokenType.OPERATOR)
@@ -207,20 +204,33 @@ class Parser:
             self.eat(TokenType.LITERAL_NUM)
             if '.' in val_token.value:
                 literal_val = float(val_token.value)
+                inferred_type = VariableType.FLOAT
             else:
                 literal_val = int(val_token.value)
+                inferred_type = VariableType.INT
         elif val_token.type == TokenType.LITERAL_STR:
             self.eat(TokenType.LITERAL_STR)
             literal_val = val_token.value
+            inferred_type = VariableType.STRING
             if operator not in ('==', '!='):
                 self.error(f"Invalid operator '{operator}' for string comparison", op_token.position)
         elif val_token.type == TokenType.LITERAL_BOOL:
             self.eat(TokenType.LITERAL_BOOL)
             literal_val = val_token.value.lower() == 'true'
+            inferred_type = VariableType.BOOLEAN
             if operator not in ('==', '!='):
                 self.error(f"Invalid operator '{operator}' for boolean comparison", op_token.position)
         else:
             self.error("Expected literal value", val_token.position)
+            
+        if var_name not in self.registry:
+            # Sloppy auto-register
+            self.registry[var_name] = Variable(name=var_name, type=inferred_type)
+        else:
+            # Reconcile type mismatch overrides on early symbolic guesses
+            existing_type = self.registry[var_name].type
+            if existing_type == VariableType.STRING and inferred_type != VariableType.STRING:
+                self.registry[var_name].type = inferred_type
             
         return GuardNode(
             node_type=GuardNodeType.CONDITION,

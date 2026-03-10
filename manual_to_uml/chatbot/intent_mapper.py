@@ -15,6 +15,14 @@ class IntentMatch(BaseModel):
 
 CONFIDENCE_THRESHOLD = 0.65  # Lowered from 0.80 for symptom/natural language matching
 
+SYNONYM_MAP = {
+    "leakage_detected": ["water leaking", "leak", "fluid leaking", "dripping water"],
+    "power_failure": ["no power", "not turning on", "machine dead"],
+    "overheat": ["too hot", "temperature high", "overheating"],
+    "start_pump": ["turn on pump", "activate pump", "start"],
+    "shut_down": ["stop machine", "turn off", "power down"]
+}
+
 class IntentMapper:
     def __init__(self):
         try:
@@ -79,6 +87,18 @@ class IntentMapper:
         
         for event in all_events:
             phrases = self._generate_descriptive_phrases(event, all_states)
+            
+            # Layer 1 - Synonym Map
+            if event in SYNONYM_MAP:
+                phrases.extend(SYNONYM_MAP[event])
+                
+            # Layer 2 - Include source manual sentences
+            related_transitions = [t for t in ibr.transitions if t.event == event]
+            for t in related_transitions:
+                for sid in t.source_sentence_ids:
+                    if sid in ibr.source_sentences:
+                        phrases.append(ibr.source_sentences[sid])
+                        
             for phrase in phrases:
                 # If phrase exists, override only if current event is in valid_events 
                 # (prioritizes active state transitions)

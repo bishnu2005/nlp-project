@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import axios from 'axios'
 import GraphPanel from './components/GraphPanel'
-import SimulatorPanel from './components/SimulatorPanel'
+import EventTriggerPanel from './components/EventTriggerPanel'
 import SourcePanel from './components/SourcePanel'
 import ChatbotPanel from './components/ChatbotPanel'
 import CompileModal from './components/CompileModal'
@@ -12,7 +12,6 @@ function App() {
     const [modelData, setModelData] = useState(null)
     const [modelId, setModelId] = useState(null)
     const [currentStateId, setCurrentStateId] = useState(null)
-    const [currentVariables, setCurrentVariables] = useState({})
     const [sourceSentences, setSourceSentences] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
@@ -44,18 +43,6 @@ function App() {
         setModelData(ibrData)
         setModelId(response.data.model_id)
         setCurrentStateId(response.data.initial_state)
-
-        // Initialize variables
-        const initialVars = {}
-        if (ibrData.variables) {
-            Object.entries(ibrData.variables).forEach(([key, def]) => {
-                if (def.type === 'int' || def.type === 'float') initialVars[key] = 0
-                else if (def.type === 'boolean') initialVars[key] = false
-                else if (def.type === 'enum' && def.enum_values?.length > 0) initialVars[key] = def.enum_values[0]
-                else initialVars[key] = ''
-            })
-        }
-        setCurrentVariables(initialVars)
 
         // Load source sentences for initial state
         fetchSourceSentences(response.data.model_id, response.data.initial_state)
@@ -90,10 +77,6 @@ function App() {
     const handleTransition = (newStateId) => {
         setCurrentStateId(newStateId)
         if (modelId) fetchSourceSentences(modelId, newStateId)
-    }
-
-    const handleVariableChange = (name, value) => {
-        setCurrentVariables(prev => ({ ...prev, [name]: value }))
     }
 
     // Find the full state object for the simulator panel
@@ -143,10 +126,16 @@ function App() {
                 </div>
             )}
 
-            <main className="flex-grow p-4 grid grid-cols-12 gap-4 overflow-hidden" style={{ height: 'calc(100vh - 76px)' }}>
-
-                {/* Left Column: Graph (span 7) */}
-                <div className="col-span-12 lg:col-span-7 h-full">
+            <main
+                className="flex-grow p-4 grid gap-4 overflow-hidden"
+                style={{
+                    height: 'calc(100vh - 76px)',
+                    gridTemplateColumns: '1fr 380px',
+                    gridTemplateRows: '100%'
+                }}
+            >
+                {/* Left Column: Graph */}
+                <div className="h-full min-h-0 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <GraphPanel
                         modelData={modelData}
                         currentStateId={currentStateId}
@@ -154,38 +143,32 @@ function App() {
                     />
                 </div>
 
-                {/* Right Column: Split Top/Middle/Bottom (span 5) */}
-                <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 h-full">
-
-                    <div className="flex-[3] min-h-0">
-                        <SimulatorPanel
-                            modelData={modelData}
+                {/* Right Column: Split Top/Middle/Bottom */}
+                <div className="flex flex-col gap-4 h-full min-h-0">
+                    <div style={{ height: '45%' }} className="min-h-0">
+                        <EventTriggerPanel
                             modelId={modelId}
                             currentState={currentStateObj}
-                            currentVariables={currentVariables}
                             onTransition={handleTransition}
-                            onVariableChange={handleVariableChange}
                         />
                     </div>
 
-                    <div className="flex-[2] min-h-0">
+                    <div style={{ height: '25%' }} className="min-h-0">
                         <SourcePanel
                             sourceSentences={sourceSentences}
                             selectedStateId={currentStateId}
                         />
                     </div>
 
-                    <div className="flex-[2] min-h-0">
+                    <div style={{ height: '30%' }} className="min-h-0">
                         <ChatbotPanel
                             modelId={modelId}
                             currentStateId={currentStateId}
-                            currentVariables={currentVariables}
+                            currentVariables={{}} // Abstracted away
                             onTransition={handleTransition}
                         />
                     </div>
-
                 </div>
-
             </main>
 
             <CompileModal

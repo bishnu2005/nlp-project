@@ -6,21 +6,22 @@ from manual_to_uml.simulation.simulator_api import evaluate_guard_concrete
 def resolve_response(intent: IntentMatch, ibr: IBR, current_state: str, variable_values: Dict[str, Any]) -> str:
     if intent.confidence < CONFIDENCE_THRESHOLD:
         if intent.alternatives:
-            alt_list = ", ".join([f"'{a[0]}'" for a in intent.alternatives])
-            return f"I am not sure what you mean. Did you mean one of these actions: '{intent.matched_event}', {alt_list}?"
+            alt_list = "\n".join([f"[ {a[0].replace('_', ' ')} ]" for a in intent.alternatives])
+            first_alt = f"[ {intent.matched_event.replace('_', ' ')} ]"
+            return f"I am not sure what you mean.\nDid you mean one of these actions?\n\n{first_alt}\n{alt_list}"
         else:
-            return "I don't understand that instruction. Could you rephrase your problem or action?"
+            return "I am not sure what you mean. Could you rephrase your problem or action?"
             
     # Check if event is valid from current state
     if intent.matched_state != current_state:
         # FSM Limitation Enforcement
         valid_transitions = [t for t in ibr.transitions if t.from_state == current_state]
         if not valid_transitions:
-            return f"This action is not valid in the current state '{current_state}'. This state has no available actions."
+            return f"This action is not valid in the current state '{current_state}'.\nValid actions: none."
             
         valid_events = list(set([t.event for t in valid_transitions]))
         event_list = ", ".join(valid_events)
-        return f"This action '{intent.matched_event}' is not valid in the current state '{current_state}'. Valid actions are: [{event_list}]."
+        return f"This action is not valid in the current state '{current_state}'.\nValid actions: {event_list}."
         
     # Check guards
     possible_transitions = [t for t in ibr.transitions if t.from_state == current_state and t.event == intent.matched_event]
