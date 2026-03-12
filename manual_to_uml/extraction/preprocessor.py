@@ -1,6 +1,6 @@
 import spacy
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
 
 class Sentence(BaseModel):
     id: str
@@ -10,6 +10,7 @@ class Sentence(BaseModel):
     is_conditional: bool = False
     is_action: bool = False
     conditional_markers: List[str] = []
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {
         "protected_namespaces": ()
@@ -102,6 +103,17 @@ class Preprocessor:
                     conditional_markers=markers
                 ))
                 s_idx += 1
+        from manual_to_uml.config import DEBUG_PIPELINE
+        import logging
+        if DEBUG_PIPELINE:
+            logger = logging.getLogger(__name__)
+            logger.info("[DEBUG] Sentences after preprocessing:")
+            for s in sentences:
+                logger.info({
+                    "id": s.id,
+                    "text": s.text,
+                    "metadata": s.metadata
+                })
                 
         return sentences
 

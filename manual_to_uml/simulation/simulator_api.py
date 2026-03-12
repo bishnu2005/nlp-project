@@ -62,6 +62,7 @@ class LoadModelResponse(BaseModel):
 class TransitionSummary(BaseModel):
     event: str
     target_state: str
+    display_label: Optional[str] = None
 
 class StateResponse(BaseModel):
     current_state: str
@@ -131,12 +132,23 @@ def evaluate_guard_concrete(guard, variables_registry, variable_values) -> bool:
 def load_model(ibr: IBR):
     session_id = str(uuid.uuid4())
     
-    # Find initial state
-    initial_states = [s for s in ibr.states if s.is_initial]
-    if not initial_states:
-        raise HTTPException(status_code=400, detail="Invalid IBR: No initial state")
+    # 1. explicit is_initial
+    initial_state = next((s for s in ibr.states if s.is_initial), None)
+    
+    # 2. node with no incoming edges
+    if not initial_state:
+        incoming_ids = set(t.to_state for t in ibr.transitions)
+        no_in = [s for s in ibr.states if s.id not in incoming_ids and not s.is_terminal]
+        if no_in:
+            initial_state = no_in[0]
+            
+    # 3. fallback first non-terminal state
+    if not initial_state and ibr.states:
+        non_terminal = [s for s in ibr.states if not s.is_terminal]
+        initial_state = non_terminal[0] if non_terminal else None
         
-    initial_state = initial_states[0]
+    if not initial_state:
+        raise HTTPException(status_code=400, detail="IBR has no valid initial state")
     
     session = SimulatorSession(session_id, ibr, initial_state.id)
     sessions_db[session_id] = session
@@ -169,7 +181,11 @@ def get_model_state(model_id: str, current_state: Optional[str] = None):
     # Dynamically recompute valid transitions
     valid_trans = session.get_valid_transitions()
     valid_transitions_summary = [
-        TransitionSummary(event=t.event, target_state=t.to_state)
+        TransitionSummary(
+            event=t.event, 
+            target_state=t.to_state, 
+            display_label=t.display_label
+        )
         for t in valid_trans
     ]
     
@@ -274,6 +290,15 @@ def chatbot_query(request: ChatbotQueryRequest):
     
     try:
         intent = map_intent(request.user_input, ibr, request.current_state)
+        
+        # Fast exit for meta queries
+        if getattr(intent, 'is_meta', False):
+            return ChatbotQueryResponse(
+                response_text=intent.meta_response,
+                confidence=intent.confidence,
+                matched_event=None,
+                transition_taken=False
+            )
         
         if intent.confidence < CONFIDENCE_THRESHOLD:
             clarifications = [x[0] for x in intent.alternatives] if intent.alternatives else []

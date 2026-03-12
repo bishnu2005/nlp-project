@@ -1,0 +1,353 @@
+{
+  "sentences": [
+    {
+      "id": "s001",
+      "text": "Step 1: Power on the infusion pump.",
+      "original_index": 0,
+      "section": "Step 1: Power on the infusion pump.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s002",
+      "text": "Step 2: Connect the infusion line to the patient.",
+      "original_index": 1,
+      "section": "Step 2: Connect the infusion line to the patient.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s003",
+      "text": "Step 3: Prime the infusion line.",
+      "original_index": 2,
+      "section": "Step 3: Prime the infusion line.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s004",
+      "text": "Step 4: Confirm that priming is complete.",
+      "original_index": 3,
+      "section": "Step 4: Confirm that priming is complete.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s005",
+      "text": "Step 5: If priming_complete == TRUE, begin infusion.",
+      "original_index": 4,
+      "section": "Step 4: Confirm that priming is complete.",
+      "is_conditional": true,
+      "is_action": false,
+      "conditional_markers": [
+        "if"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "s006",
+      "text": "Step 6: Monitor infusion_rate_mlhr and ensure it stays within safe limits.",
+      "original_index": 5,
+      "section": "Step 4: Confirm that priming is complete.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s007",
+      "text": "Step 7: If rate_within_limits == FALSE, stop infusion immediately.",
+      "original_index": 6,
+      "section": "Step 4: Confirm that priming is complete.",
+      "is_conditional": true,
+      "is_action": false,
+      "conditional_markers": [
+        "if"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "s008",
+      "text": "Step 8: Continue infusion while monitoring patient status.",
+      "original_index": 7,
+      "section": "Step 4: Confirm that priming is complete.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    }
+  ],
+  "states": [
+    {
+      "id": "Initial",
+      "name": "Initial",
+      "is_initial": true,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": null,
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s001"
+      ]
+    },
+    {
+      "id": "Step",
+      "name": "Step",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 1: Power on the infusion pump.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s001"
+      ]
+    },
+    {
+      "id": "Connect",
+      "name": "Connect",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 2: Connect the infusion line to the patient.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s002"
+      ]
+    },
+    {
+      "id": "Prime",
+      "name": "Prime",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 3: Prime the infusion line.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s003"
+      ]
+    },
+    {
+      "id": "Confirm",
+      "name": "Confirm",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 4: Confirm that priming is complete.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s004"
+      ]
+    },
+    {
+      "id": "=",
+      "name": "=",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 5: If priming_complete == TRUE, begin infusion.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s005"
+      ]
+    },
+    {
+      "id": "Step_",
+      "name": "Step ",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 6: Monitor infusion_rate_mlhr and ensure it stays within safe limits.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s006"
+      ]
+    },
+    {
+      "id": "Stop",
+      "name": "Stop",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 7: If rate_within_limits == FALSE, stop infusion immediately.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s007"
+      ]
+    },
+    {
+      "id": "Continue",
+      "name": "Continue",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 8: Continue infusion while monitoring patient status.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s008"
+      ]
+    },
+    {
+      "id": "Terminal",
+      "name": "Terminal",
+      "is_initial": false,
+      "is_terminal": true,
+      "is_fault": false,
+      "entry_action": null,
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s001",
+        "s002",
+        "s003",
+        "s004",
+        "s005",
+        "s006",
+        "s007",
+        "s008"
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t001",
+      "from_state": "Initial",
+      "to_state": "Step",
+      "event": "step_pump",
+      "display_label": "step pump",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s001"
+      ]
+    },
+    {
+      "id": "t002",
+      "from_state": "Step",
+      "to_state": "Connect",
+      "event": "connect_patient",
+      "display_label": "connect patient",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s002"
+      ]
+    },
+    {
+      "id": "t003",
+      "from_state": "Connect",
+      "to_state": "Prime",
+      "event": "prime_line",
+      "display_label": "prime line",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s003"
+      ]
+    },
+    {
+      "id": "t004",
+      "from_state": "Prime",
+      "to_state": "Confirm",
+      "event": "confirm",
+      "display_label": "confirm",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s004"
+      ]
+    },
+    {
+      "id": "t005",
+      "from_state": "Confirm",
+      "to_state": "=",
+      "event": "=_infusion",
+      "display_label": "= infusion",
+      "guard": {
+        "node_type": "condition",
+        "variable": "priming_complete",
+        "operator": "==",
+        "literal_value": true,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
+      "action": null,
+      "source_sentence_ids": [
+        "s005"
+      ]
+    },
+    {
+      "id": "t006",
+      "from_state": "Confirm",
+      "to_state": "Step_",
+      "event": "step_limit",
+      "display_label": "step limit",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s006"
+      ]
+    },
+    {
+      "id": "t007",
+      "from_state": "Step_",
+      "to_state": "Stop",
+      "event": "stop_infusion",
+      "display_label": "stop infusion",
+      "guard": {
+        "node_type": "condition",
+        "variable": "rate_within_limits",
+        "operator": "==",
+        "literal_value": false,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
+      "action": null,
+      "source_sentence_ids": [
+        "s007"
+      ]
+    },
+    {
+      "id": "t008",
+      "from_state": "Step_",
+      "to_state": "Continue",
+      "event": "continue_status",
+      "display_label": "continue status",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s008"
+      ]
+    },
+    {
+      "id": "t009",
+      "from_state": "Continue",
+      "to_state": "Terminal",
+      "event": "complete",
+      "display_label": "complete",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s008"
+      ]
+    }
+  ]
+}

@@ -1,14 +1,16 @@
-import os
-import json
 import logging
+import json
+import requests
 from enum import Enum
 from typing import List, Dict, Optional
 from pydantic import BaseModel
-import google.generativeai as genai
 from dotenv import load_dotenv
 from manual_to_uml.extraction.preprocessor import Sentence
 
 load_dotenv()
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL_NAME = "llama3:8b"
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +38,7 @@ class AmbiguityDetector:
         self.implicit_branch_terms = [
             "otherwise", "if necessary", "as needed", "in case of", "alternatively"
         ]
-        
-        resolved_key = api_key
-        if resolved_key:
-            genai.configure(api_key=resolved_key)
-            self.model = genai.GenerativeModel("gemini-2.5-flash")
-        else:
-            self.model = None
+        self.use_mock = False
 
     def _symbolic_checks(self, sentence: Sentence) -> List[AmbiguityFlag]:
         flags = []
@@ -78,7 +74,7 @@ class AmbiguityDetector:
         return flags
 
     def _llm_check_batch(self, sentences: List[Sentence]) -> Dict[str, AmbiguityFlag]:
-        if not self.model:
+        if self.use_mock:
             # Mock LLM check
             flags = {}
             for sentence in sentences:
@@ -105,8 +101,21 @@ class AmbiguityDetector:
             prompt += f"[{s.id}] {s.text}\n"
             
         try:
-            response = self.model.generate_content(prompt)
-            result_str = response.text
+            response = requests.post(
+                OLLAMA_URL,
+                json={
+                    "model": MODEL_NAME,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.1,
+                        "num_predict": 1000
+                    }
+                },
+                timeout=120
+            )
+            response.raise_for_status()
+            result_str = response.json()["response"]
             
             # Strip Markdown fences if the LLM leaked them
             if result_str.startswith("```json"):
@@ -140,9 +149,8 @@ class AmbiguityDetector:
             return {}
 
     def detect(self, sentences: List[Sentence]) -> List[dict]:
-        import time
         all_flags = []
-        batch_size = 50
+        batch_size = 20
         
         for i in range(0, len(sentences), batch_size):
             batch = sentences[i:i + batch_size]
@@ -167,10 +175,6 @@ class AmbiguityDetector:
                 for f in sent_sym_flags:
                     all_flags.append(f.model_dump())
                     
-            if i + batch_size < len(sentences):
-                 logger.info("Sleeping for 12.5 seconds to respect API rate limits (Ambiguity Detector)...")
-                 time.sleep(12.5)
-                
         return all_flags
 
 def detect_ambiguities(sentences: List[Sentence], api_key: str = None) -> List[dict]:

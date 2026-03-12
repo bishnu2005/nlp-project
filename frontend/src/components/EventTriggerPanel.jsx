@@ -79,7 +79,7 @@ const EventTriggerPanel = ({ modelId, currentState, onTransition }) => {
                                 onClick={() => handleTrigger(t.event)}
                                 className="w-full text-left bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-700 hover:text-amber-700 font-medium rounded-lg p-3 transition-colors flex items-center justify-between group shadow-sm"
                             >
-                                <span className="capitalize">{t.event.replace(/_/g, ' ')}</span>
+                                <span className="capitalize">{(t.display_label || t.event).replace(/_/g, ' ')}</span>
                                 <Zap size={16} className="text-slate-300 group-hover:text-amber-500" />
                             </button>
                         ))

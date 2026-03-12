@@ -21,19 +21,21 @@ const GraphPanel = ({ modelData, currentStateId, onStateSelect }) => {
                     id: state.id,
                     label: state.name,
                     isTerminal: state.is_terminal,
-                    isInitial: state.is_initial
+                    isInitial: state.is_initial,
+                    isFault: state.is_fault
                 },
                 classes: [
                     state.id === currentStateId ? 'active' : '',
                     state.is_terminal ? 'terminal' : '',
-                    state.is_initial ? 'initial' : ''
+                    state.is_initial ? 'initial' : '',
+                    state.is_fault ? 'fault' : ''
                 ].filter(Boolean).join(' ')
             });
         });
 
         // Add edges
         modelData.transitions.forEach(t => {
-            let label = t.event;
+            let label = t.display_label || t.event;
             if (t.guard) {
                 // Simple stringification of guard for display
                 label += ' [...]';
@@ -88,6 +90,15 @@ const GraphPanel = ({ modelData, currentStateId, onStateSelect }) => {
             }
         },
         {
+            selector: 'node.fault',
+            style: {
+                'background-color': '#7f1d1d',
+                'border-color': '#ef4444',
+                'border-width': 2,
+                'color': '#f87171'
+            }
+        },
+        {
             selector: 'node.initial',
             style: {
                 'border-style': 'dashed'
@@ -137,7 +148,13 @@ const GraphPanel = ({ modelData, currentStateId, onStateSelect }) => {
                         elements={elements}
                         style={{ width: '100%', height: '100%' }}
                         stylesheet={style}
-                        layout={{ name: 'dagre', rankDir: 'LR', spacingFactor: 1.5 }}
+                        layout={{
+                            name: 'dagre',
+                            rankDir: 'TB',
+                            nodeSep: 80,
+                            rankSep: 100,
+                            animate: true
+                        }}
                         cy={(cy) => {
                             cy.on('tap', 'node', handleNodeClick);
                             // ensure it centers nicely on load

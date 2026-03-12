@@ -49,6 +49,7 @@ class Transition(BaseModel):
     from_state: str
     to_state: str
     event: str
+    display_label: Optional[str] = None
     guard: Optional[GuardNode] = None
     action: Optional[str] = None
     source_sentence_ids: List[str] = Field(default_factory=list)
@@ -58,6 +59,7 @@ class State(BaseModel):
     name: str
     is_initial: bool = False
     is_terminal: bool = False
+    is_fault: bool = False
     entry_action: Optional[str] = None
     exit_action: Optional[str] = None
     invariant: Optional[GuardNode] = None
