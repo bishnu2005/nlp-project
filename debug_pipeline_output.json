@@ -1,0 +1,337 @@
+{
+  "sentences": [
+    {
+      "id": "s001",
+      "text": "Step 1: Begin deployment of the new service version.",
+      "original_index": 0,
+      "section": null,
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s002",
+      "text": "Step 2: Monitor system metrics during deployment.",
+      "original_index": 1,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    },
+    {
+      "id": "s003",
+      "text": "Step 3: If error_rate_pct > 3 OR latency_ms > 2000, initiate rollback.",
+      "original_index": 2,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": true,
+      "is_action": false,
+      "conditional_markers": [
+        "if"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "s004",
+      "text": "Step 4: If error_rate_pct <= 5 AND latency_ms <= 3000, continue deployment.",
+      "original_index": 3,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": true,
+      "is_action": false,
+      "conditional_markers": [
+        "if"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "s005",
+      "text": "Step 5: If deployment completes successfully, mark deployment_complete == TRUE.",
+      "original_index": 4,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": true,
+      "is_action": false,
+      "conditional_markers": [
+        "if"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "s006",
+      "text": "Step 6: If deployment_complete == TRUE, notify the operations team.",
+      "original_index": 5,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": true,
+      "is_action": false,
+      "conditional_markers": [
+        "if"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "s007",
+      "text": "Step 7: Otherwise continue monitoring system performance.",
+      "original_index": 6,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": false,
+      "is_action": false,
+      "conditional_markers": [],
+      "metadata": {}
+    }
+  ],
+  "states": [
+    {
+      "id": "Initial",
+      "name": "Initial",
+      "is_initial": true,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": null,
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s001"
+      ]
+    },
+    {
+      "id": "Begin",
+      "name": "Begin",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 1: Begin deployment of the new service version.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s001"
+      ]
+    },
+    {
+      "id": "Step",
+      "name": "Step",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 2: Monitor system metrics during deployment.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s002"
+      ]
+    },
+    {
+      "id": "Initiate",
+      "name": "Initiate",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 3: If error_rate_pct > 3 OR latency_ms > 2000, initiate rollback.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s003"
+      ]
+    },
+    {
+      "id": "Continue",
+      "name": "Continue",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 4: If error_rate_pct <= 5 AND latency_ms <= 3000, continue deployment.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s004"
+      ]
+    },
+    {
+      "id": "Mark",
+      "name": "Mark",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 5: If deployment completes successfully, mark deployment_complete == TRUE.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s005"
+      ]
+    },
+    {
+      "id": "Notify",
+      "name": "Notify",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 6: If deployment_complete == TRUE, notify the operations team.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s006"
+      ]
+    },
+    {
+      "id": "Continue_",
+      "name": "Continue ",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 7: Otherwise continue monitoring system performance.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s007"
+      ]
+    },
+    {
+      "id": "Terminal",
+      "name": "Terminal",
+      "is_initial": false,
+      "is_terminal": true,
+      "is_fault": false,
+      "entry_action": null,
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s001",
+        "s002",
+        "s003",
+        "s004",
+        "s005",
+        "s006",
+        "s007"
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t001",
+      "from_state": "Initial",
+      "to_state": "Begin",
+      "event": "begin_version",
+      "display_label": "begin version",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s001"
+      ]
+    },
+    {
+      "id": "t002",
+      "from_state": "Begin",
+      "to_state": "Step",
+      "event": "step_deployment",
+      "display_label": "step deployment",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s002"
+      ]
+    },
+    {
+      "id": "t003",
+      "from_state": "Step",
+      "to_state": "Initiate",
+      "event": "initiate_rollback",
+      "display_label": "initiate rollback",
+      "guard": {
+        "node_type": "condition",
+        "variable": "error_rate_pct",
+        "operator": ">",
+        "literal_value": 3.0,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
+      "action": null,
+      "source_sentence_ids": [
+        "s003"
+      ]
+    },
+    {
+      "id": "t004",
+      "from_state": "Step",
+      "to_state": "Continue",
+      "event": "continue_deployment",
+      "display_label": "continue deployment",
+      "guard": {
+        "node_type": "condition",
+        "variable": "error_rate_pct",
+        "operator": "<=",
+        "literal_value": 5.0,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
+      "action": null,
+      "source_sentence_ids": [
+        "s004"
+      ]
+    },
+    {
+      "id": "t005",
+      "from_state": "Step",
+      "to_state": "Mark",
+      "event": "mark_=",
+      "display_label": "mark =",
+      "guard": {
+        "node_type": "condition",
+        "variable": "deployment_complete",
+        "operator": "==",
+        "literal_value": true,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
+      "action": null,
+      "source_sentence_ids": [
+        "s005"
+      ]
+    },
+    {
+      "id": "t006",
+      "from_state": "Step",
+      "to_state": "Notify",
+      "event": "notify_team",
+      "display_label": "notify team",
+      "guard": {
+        "node_type": "condition",
+        "variable": "deployment_complete",
+        "operator": "==",
+        "literal_value": true,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
+      "action": null,
+      "source_sentence_ids": [
+        "s006"
+      ]
+    },
+    {
+      "id": "t007",
+      "from_state": "Step",
+      "to_state": "Continue_",
+      "event": "continue_performance",
+      "display_label": "continue performance",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s007"
+      ]
+    },
+    {
+      "id": "t008",
+      "from_state": "Continue_",
+      "to_state": "Terminal",
+      "event": "complete",
+      "display_label": "complete",
+      "guard": null,
+      "action": null,
+      "source_sentence_ids": [
+        "s007"
+      ]
+    }
+  ]
+}
