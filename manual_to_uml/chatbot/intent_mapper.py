@@ -1,24 +1,8 @@
-from pydantic import BaseModel
-from typing import List, Tuple, Optional, Dict
-import os
 import logging
+from typing import List, Tuple, Optional, Dict
+from pydantic import BaseModel
+from rapidfuzz import fuzz
 from manual_to_uml.core.ibr_schema import IBR
-
-# Check for rapidfuzz
-try:
-    from rapidfuzz import fuzz
-    RAPIDFUZZ_AVAILABLE = True
-except ImportError:
-    RAPIDFUZZ_AVAILABLE = False
-    logging.warning("rapidfuzz not installed. Stage 3 fuzzy matching will be skipped.")
-
-# Optional transformer fallback
-try:
-    from sentence_transformers import SentenceTransformer
-    import numpy as np
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    TRANSFORMERS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -26,200 +10,90 @@ class IntentMatch(BaseModel):
     matched_event: str
     matched_state: Optional[str]
     confidence: float
-    alternatives: List[Tuple[str, float]]  # other matches + scores
+    alternatives: List[Tuple[str, float]] = []
     is_meta: bool = False
     meta_response: Optional[str] = None
 
-# Stage 5 — Threshold Adjustment: lowered from 0.65 -> 0.40
-CONFIDENCE_THRESHOLD = 0.40
-
-SYNONYM_MAP = {
-    "leakage_detected": ["water leaking", "leak", "fluid leaking", "dripping water"],
-    "power_failure": ["no power", "not turning on", "machine dead"],
-    "overheat": ["too hot", "temperature high", "overheating"],
-    "start_pump": ["turn on pump", "activate pump", "start"],
-    "shut_down": ["stop machine", "turn off", "power down"]
-}
+META_PATTERNS = [
+    "how do i use",
+    "how to use",
+    "help",
+    "what can you do",
+    "what is this",
+    "explain",
+]
 
 class IntentMapper:
-    def __init__(self):
-        self.model = None
-        if TRANSFORMERS_AVAILABLE:
-            try:
-                # Stage 6 — Local Model Cache
-                cache_dir = os.path.join(os.getcwd(), "models")
-                os.makedirs(cache_dir, exist_ok=True)
-                self.model = SentenceTransformer(
-                    "sentence-transformers/all-MiniLM-L6-v2",
-                    cache_folder=cache_dir
-                )
-            except Exception as e:
-                logger.warning(f"Failed to load sentence-transformers model. Reason: {e}")
-                self.model = None
-
-    def _cosine_similarity(self, a, b) -> float:
-        import numpy as np
-        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
-
-    def _generate_descriptive_phrases(self, event_name: str, state_names: List[str]) -> List[str]:
-        """Generate human-readable symptom/action variations from raw FSM event/state names."""
-        clean_event = event_name.replace("_", " ").lower()
-        phrases = [
-            clean_event,
-            f"I want to {clean_event}",
-            f"How do I {clean_event}?",
-            f"The system is showing {clean_event}",
-            f"I see a {clean_event}",
-            f"{clean_event} happened"
-        ]
-        
-        # Add some state-specific context if it's a known state
-        for state in state_names:
-            clean_state = state.replace("_", " ").lower()
-            if clean_state in clean_event:
-                phrases.append(f"the {clean_state} is having an issue")
-                
-        # Common symptom mappings based on project prompt requirements
-        if "leak" in clean_event: phrases.extend(["water is leaking", "it is leaking", "spraying water"])
-        if "warning" in clean_event or "alert" in clean_event or "light" in clean_event: phrases.extend(["light is blinking", "red light", "warning light is on"])
-        if "temp" in clean_event or "heat" in clean_event: phrases.extend(["is overheating", "too hot", "temperature high"])
-        if "start" in clean_event and "fail" in clean_event: phrases.extend(["won't start", "refuses to start", "failed to turn on"])
-        
-        return phrases
-
     def map_intent(self, user_input: str, ibr: IBR, current_state: str) -> IntentMatch:
-        user_lower = user_input.lower().strip()
-        logger.info(f"[IntentResolver] Analyzing query: '{user_input}' (State: {current_state})")
+        user_query = user_input.lower().strip()
+        logger.info(f"[IntentResolver] current_state: {current_state}")
 
-        # Stage 1 — MΕTA Query Detection
-        META_PATTERNS = ["how do i use", "help", "what can you do", "explain", "what do i do", "what is this", "who are you"]
-        if any(p in user_lower for p in META_PATTERNS):
+        # Step 1: META query detection
+        if any(pattern in user_query for pattern in META_PATTERNS):
             return IntentMatch(
                 matched_event="",
                 matched_state=None,
                 confidence=1.0,
-                alternatives=[],
                 is_meta=True,
-                meta_response="I am an interactive simulator generated from your technical manual. You can ask me to perform actions (e.g., 'start the pump'), check system states, or ask what actions are currently available to you."
+                meta_response="I am an interactive assistant for this technical procedure. You can ask me to perform actions, describe system states, or ask 'help' to see what actions are available at the current step."
             )
 
-        valid_transitions = [t for t in ibr.transitions if t.from_state == current_state]
-        valid_events = list(set([t.event for t in valid_transitions]))
-        all_events = list(set([t.event for t in ibr.transitions]))
-        all_states = [s.id for s in ibr.states]
-        
-        logger.info(f"[IntentResolver] valid events = {valid_events}")
+        # Step 2: Get valid FSM transitions
+        valid_events = list(set(t.event for t in ibr.transitions if t.from_state == current_state))
+        logger.info(f"[IntentResolver] valid_events: {valid_events}")
 
-        if not all_events:
-            return IntentMatch(matched_event="", matched_state=None, confidence=0.0, alternatives=[])
-
-        # Stage 2 — Current State Transition Matching (Keyword match)
+        # Step 3: Keyword matching
+        tokens = user_query.split()
         for event in valid_events:
-            # Split event "replace_cartridge" into words
-            event_words = event.replace("_", " ").split()
-            # Strict token overlap logic
-            match_count = sum(1 for word in event_words if word in user_lower.split())
-            if match_count > 0 and (match_count / len(event_words) >= 0.5):
-                logger.info(f"[IntentResolver] keyword match trigger = '{event}'")
+            event_words = event.lower().replace("_", " ").split()
+            if any(word in tokens for word in event_words):
+                logger.info(f"[IntentResolver] keyword match: {event}")
                 return IntentMatch(
                     matched_event=event,
                     matched_state=current_state,
-                    confidence=1.0,
-                    alternatives=[]
-                )
-                
-            # Use synonym map for keyword matching too
-            if event in SYNONYM_MAP:
-                for syn in SYNONYM_MAP[event]:
-                    if any(w in user_lower for w in syn.split()):
-                         logger.info(f"[IntentResolver] keyword match (synonym) trigger = '{event}'")
-                         return IntentMatch(
-                             matched_event=event,
-                             matched_state=current_state,
-                             confidence=1.0,
-                             alternatives=[]
-                         )
-
-        # Stage 3 — Fuzzy Matching
-        if RAPIDFUZZ_AVAILABLE:
-            best_fuzz_score = 0
-            best_fuzz_event = None
-            
-            for event in all_events:
-                # Compare raw string and descriptive phrases
-                phrases = self._generate_descriptive_phrases(event, all_states)
-                if event in SYNONYM_MAP:
-                    phrases.extend(SYNONYM_MAP[event])
-                    
-                for phrase in phrases:
-                    score = fuzz.partial_ratio(user_lower, phrase.lower())
-                    if event in valid_events:
-                        score += 5  # Bonus for being in current state
-                        
-                    if score > best_fuzz_score:
-                        best_fuzz_score = score
-                        best_fuzz_event = event
-                        
-            logger.info(f"[IntentResolver] fuzzy score = {best_fuzz_score} against '{best_fuzz_event}'")
-            if best_fuzz_score > 60 and best_fuzz_event:
-                return IntentMatch(
-                    matched_event=best_fuzz_event,
-                    matched_state=current_state if best_fuzz_event in valid_events else None,
-                    confidence=best_fuzz_score / 100.0,
-                    alternatives=[]
+                    confidence=1.0
                 )
 
-        # Stage 4 — Semantic Embeddings (Fallback Only)
-        logger.info(f"[IntentResolver] semantic fallback engaged")
-        if not self.model:
-            logger.warning("[IntentResolver] Transformer model missing. Fallback dropped.")
-            return IntentMatch(matched_event="", matched_state=None, confidence=0.0, alternatives=[])
-            
-        try:
-            phrase_to_event = {}
-            for event in all_events:
-                phrases = self._generate_descriptive_phrases(event, all_states)
-                if event in SYNONYM_MAP:
-                    phrases.extend(SYNONYM_MAP[event])
-                for phrase in phrases:
-                    if phrase not in phrase_to_event or event in valid_events:
-                        phrase_to_event[phrase] = event
+        # Step 4: Fuzzy matching
+        best_event = None
+        best_score = 0
+        for event in valid_events:
+            score = fuzz.partial_ratio(user_query, event.replace("_", " "))
+            logger.info(f"[IntentResolver] fuzzy score: {score} for {event}")
+            if score > 55 and score > best_score:
+                best_score = score
+                best_event = event
 
-            corpus = list(phrase_to_event.keys())
-            user_embedding = self.model.encode([user_input])[0]
-            corpus_embeddings = self.model.encode(corpus)
-            
-            event_scores = {}
-            for idx, emb in enumerate(corpus_embeddings):
-                sim = self._cosine_similarity(user_embedding, emb)
-                phrase = corpus[idx]
-                event = phrase_to_event[phrase]
-                
-                if event in valid_events:
-                    sim += 0.05
-                    
-                if event not in event_scores or sim > event_scores[event]:
-                    event_scores[event] = sim
-                
-            scores = [(evt, score) for evt, score in event_scores.items()]
-            scores.sort(key=lambda x: x[1], reverse=True)
-            
-            best_match, best_score = scores[0]
-            logger.info(f"[IntentResolver] Best semantic match: '{best_match}' (confidence: {best_score:.3f})")
-            
-            alternatives = []
-            if best_score < CONFIDENCE_THRESHOLD:
-                alternatives = scores[1:min(4, len(scores))]
-                
+        if best_event:
             return IntentMatch(
-                matched_event=best_match,
-                matched_state=current_state if best_match in valid_events else None,
-                confidence=best_score,
-                alternatives=alternatives
+                matched_event=best_event,
+                matched_state=current_state,
+                confidence=best_score / 100.0
             )
-        except Exception as e:
-            logger.error(f"[IntentResolver] Semantic mapping failed: {e}")
-            return IntentMatch(matched_event="", matched_state=None, confidence=0.0, alternatives=[])
+
+        # Step 5: Terminal state logic
+        is_terminal = any(s.id == current_state and s.is_terminal for s in ibr.states)
+        if is_terminal:
+            return IntentMatch(
+                matched_event="",
+                matched_state=current_state,
+                confidence=1.0,
+                meta_response="This procedure has already completed. Restart from the first step if the issue persists."
+            )
+
+        # Step 6: Fallback response
+        if valid_events:
+            suggestions = "\n".join([f"* {e.replace('_', ' ')}" for e in valid_events])
+            fallback_msg = f"I am not sure what you mean.\n\nValid actions from the current step are:\n\n{suggestions}"
+        else:
+            fallback_msg = "I am not sure what you mean, and there are no valid actions from the current state."
+
+        return IntentMatch(
+            matched_event="",
+            matched_state=current_state,
+            confidence=0.0,
+            meta_response=fallback_msg
+        )
 
 def map_intent(user_input: str, ibr: IBR, current_state: str) -> IntentMatch:
     mapper = IntentMapper()

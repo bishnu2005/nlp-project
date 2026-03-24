@@ -2,9 +2,9 @@
   "sentences": [
     {
       "id": "s001",
-      "text": "Step 1: Power on the infusion pump.",
+      "text": "Step 1: Begin deployment of the new service version.",
       "original_index": 0,
-      "section": "Step 1: Power on the infusion pump.",
+      "section": null,
       "is_conditional": false,
       "is_action": false,
       "conditional_markers": [],
@@ -12,9 +12,9 @@
     },
     {
       "id": "s002",
-      "text": "Step 2: Connect the infusion line to the patient.",
+      "text": "Step 2: Monitor system metrics during deployment.",
       "original_index": 1,
-      "section": "Step 2: Connect the infusion line to the patient.",
+      "section": "Step 2: Monitor system metrics during deployment.",
       "is_conditional": false,
       "is_action": false,
       "conditional_markers": [],
@@ -22,29 +22,33 @@
     },
     {
       "id": "s003",
-      "text": "Step 3: Prime the infusion line.",
+      "text": "Step 3: If error_rate_pct > 3 OR latency_ms > 2000, initiate rollback.",
       "original_index": 2,
-      "section": "Step 3: Prime the infusion line.",
-      "is_conditional": false,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": true,
       "is_action": false,
-      "conditional_markers": [],
+      "conditional_markers": [
+        "if"
+      ],
       "metadata": {}
     },
     {
       "id": "s004",
-      "text": "Step 4: Confirm that priming is complete.",
+      "text": "Step 4: If error_rate_pct <= 5 AND latency_ms <= 3000, continue deployment.",
       "original_index": 3,
-      "section": "Step 4: Confirm that priming is complete.",
-      "is_conditional": false,
+      "section": "Step 2: Monitor system metrics during deployment.",
+      "is_conditional": true,
       "is_action": false,
-      "conditional_markers": [],
+      "conditional_markers": [
+        "if"
+      ],
       "metadata": {}
     },
     {
       "id": "s005",
-      "text": "Step 5: If priming_complete == TRUE, begin infusion.",
+      "text": "Step 5: If deployment completes successfully, mark deployment_complete == TRUE.",
       "original_index": 4,
-      "section": "Step 4: Confirm that priming is complete.",
+      "section": "Step 2: Monitor system metrics during deployment.",
       "is_conditional": true,
       "is_action": false,
       "conditional_markers": [
@@ -54,19 +58,9 @@
     },
     {
       "id": "s006",
-      "text": "Step 6: Monitor infusion_rate_mlhr and ensure it stays within safe limits.",
+      "text": "Step 6: If deployment_complete == TRUE, notify the operations team.",
       "original_index": 5,
-      "section": "Step 4: Confirm that priming is complete.",
-      "is_conditional": false,
-      "is_action": false,
-      "conditional_markers": [],
-      "metadata": {}
-    },
-    {
-      "id": "s007",
-      "text": "Step 7: If rate_within_limits == FALSE, stop infusion immediately.",
-      "original_index": 6,
-      "section": "Step 4: Confirm that priming is complete.",
+      "section": "Step 2: Monitor system metrics during deployment.",
       "is_conditional": true,
       "is_action": false,
       "conditional_markers": [
@@ -75,10 +69,10 @@
       "metadata": {}
     },
     {
-      "id": "s008",
-      "text": "Step 8: Continue infusion while monitoring patient status.",
-      "original_index": 7,
-      "section": "Step 4: Confirm that priming is complete.",
+      "id": "s007",
+      "text": "Step 7: Otherwise continue monitoring system performance.",
+      "original_index": 6,
+      "section": "Step 2: Monitor system metrics during deployment.",
       "is_conditional": false,
       "is_action": false,
       "conditional_markers": [],
@@ -100,12 +94,12 @@
       ]
     },
     {
-      "id": "Step",
-      "name": "Step",
+      "id": "Begin",
+      "name": "Begin",
       "is_initial": false,
       "is_terminal": false,
       "is_fault": false,
-      "entry_action": "Step 1: Power on the infusion pump.",
+      "entry_action": "Step 1: Begin deployment of the new service version.",
       "exit_action": null,
       "invariant": null,
       "source_sentence_ids": [
@@ -113,12 +107,12 @@
       ]
     },
     {
-      "id": "Connect",
-      "name": "Connect",
+      "id": "Step",
+      "name": "Step",
       "is_initial": false,
       "is_terminal": false,
       "is_fault": false,
-      "entry_action": "Step 2: Connect the infusion line to the patient.",
+      "entry_action": "Step 2: Monitor system metrics during deployment.",
       "exit_action": null,
       "invariant": null,
       "source_sentence_ids": [
@@ -126,68 +120,16 @@
       ]
     },
     {
-      "id": "Prime",
-      "name": "Prime",
+      "id": "Initiate",
+      "name": "Initiate",
       "is_initial": false,
       "is_terminal": false,
       "is_fault": false,
-      "entry_action": "Step 3: Prime the infusion line.",
+      "entry_action": "Step 3: If error_rate_pct > 3 OR latency_ms > 2000, initiate rollback.",
       "exit_action": null,
       "invariant": null,
       "source_sentence_ids": [
         "s003"
-      ]
-    },
-    {
-      "id": "Confirm",
-      "name": "Confirm",
-      "is_initial": false,
-      "is_terminal": false,
-      "is_fault": false,
-      "entry_action": "Step 4: Confirm that priming is complete.",
-      "exit_action": null,
-      "invariant": null,
-      "source_sentence_ids": [
-        "s004"
-      ]
-    },
-    {
-      "id": "=",
-      "name": "=",
-      "is_initial": false,
-      "is_terminal": false,
-      "is_fault": false,
-      "entry_action": "Step 5: If priming_complete == TRUE, begin infusion.",
-      "exit_action": null,
-      "invariant": null,
-      "source_sentence_ids": [
-        "s005"
-      ]
-    },
-    {
-      "id": "Step_",
-      "name": "Step ",
-      "is_initial": false,
-      "is_terminal": false,
-      "is_fault": false,
-      "entry_action": "Step 6: Monitor infusion_rate_mlhr and ensure it stays within safe limits.",
-      "exit_action": null,
-      "invariant": null,
-      "source_sentence_ids": [
-        "s006"
-      ]
-    },
-    {
-      "id": "Stop",
-      "name": "Stop",
-      "is_initial": false,
-      "is_terminal": false,
-      "is_fault": false,
-      "entry_action": "Step 7: If rate_within_limits == FALSE, stop infusion immediately.",
-      "exit_action": null,
-      "invariant": null,
-      "source_sentence_ids": [
-        "s007"
       ]
     },
     {
@@ -196,11 +138,50 @@
       "is_initial": false,
       "is_terminal": false,
       "is_fault": false,
-      "entry_action": "Step 8: Continue infusion while monitoring patient status.",
+      "entry_action": "Step 4: If error_rate_pct <= 5 AND latency_ms <= 3000, continue deployment.",
       "exit_action": null,
       "invariant": null,
       "source_sentence_ids": [
-        "s008"
+        "s004"
+      ]
+    },
+    {
+      "id": "Mark",
+      "name": "Mark",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 5: If deployment completes successfully, mark deployment_complete == TRUE.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s005"
+      ]
+    },
+    {
+      "id": "Notify",
+      "name": "Notify",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 6: If deployment_complete == TRUE, notify the operations team.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s006"
+      ]
+    },
+    {
+      "id": "Continue_",
+      "name": "Continue ",
+      "is_initial": false,
+      "is_terminal": false,
+      "is_fault": false,
+      "entry_action": "Step 7: Otherwise continue monitoring system performance.",
+      "exit_action": null,
+      "invariant": null,
+      "source_sentence_ids": [
+        "s007"
       ]
     },
     {
@@ -219,8 +200,7 @@
         "s004",
         "s005",
         "s006",
-        "s007",
-        "s008"
+        "s007"
       ]
     }
   ],
@@ -228,9 +208,9 @@
     {
       "id": "t001",
       "from_state": "Initial",
-      "to_state": "Step",
-      "event": "step_pump",
-      "display_label": "step pump",
+      "to_state": "Begin",
+      "event": "begin_version",
+      "display_label": "begin version",
       "guard": null,
       "action": null,
       "source_sentence_ids": [
@@ -239,10 +219,10 @@
     },
     {
       "id": "t002",
-      "from_state": "Step",
-      "to_state": "Connect",
-      "event": "connect_patient",
-      "display_label": "connect patient",
+      "from_state": "Begin",
+      "to_state": "Step",
+      "event": "step_deployment",
+      "display_label": "step deployment",
       "guard": null,
       "action": null,
       "source_sentence_ids": [
@@ -251,11 +231,19 @@
     },
     {
       "id": "t003",
-      "from_state": "Connect",
-      "to_state": "Prime",
-      "event": "prime_line",
-      "display_label": "prime line",
-      "guard": null,
+      "from_state": "Step",
+      "to_state": "Initiate",
+      "event": "initiate_rollback",
+      "display_label": "initiate rollback",
+      "guard": {
+        "node_type": "condition",
+        "variable": "error_rate_pct",
+        "operator": ">",
+        "literal_value": 3.0,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
       "action": null,
       "source_sentence_ids": [
         "s003"
@@ -263,11 +251,19 @@
     },
     {
       "id": "t004",
-      "from_state": "Prime",
-      "to_state": "Confirm",
-      "event": "confirm",
-      "display_label": "confirm",
-      "guard": null,
+      "from_state": "Step",
+      "to_state": "Continue",
+      "event": "continue_deployment",
+      "display_label": "continue deployment",
+      "guard": {
+        "node_type": "condition",
+        "variable": "error_rate_pct",
+        "operator": "<=",
+        "literal_value": 5.0,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
       "action": null,
       "source_sentence_ids": [
         "s004"
@@ -275,13 +271,13 @@
     },
     {
       "id": "t005",
-      "from_state": "Confirm",
-      "to_state": "=",
-      "event": "=_infusion",
-      "display_label": "= infusion",
+      "from_state": "Step",
+      "to_state": "Mark",
+      "event": "mark_=",
+      "display_label": "mark =",
       "guard": {
         "node_type": "condition",
-        "variable": "priming_complete",
+        "variable": "deployment_complete",
         "operator": "==",
         "literal_value": true,
         "left": null,
@@ -295,11 +291,19 @@
     },
     {
       "id": "t006",
-      "from_state": "Confirm",
-      "to_state": "Step_",
-      "event": "step_limit",
-      "display_label": "step limit",
-      "guard": null,
+      "from_state": "Step",
+      "to_state": "Notify",
+      "event": "notify_team",
+      "display_label": "notify team",
+      "guard": {
+        "node_type": "condition",
+        "variable": "deployment_complete",
+        "operator": "==",
+        "literal_value": true,
+        "left": null,
+        "right": null,
+        "operand": null
+      },
       "action": null,
       "source_sentence_ids": [
         "s006"
@@ -307,19 +311,11 @@
     },
     {
       "id": "t007",
-      "from_state": "Step_",
-      "to_state": "Stop",
-      "event": "stop_infusion",
-      "display_label": "stop infusion",
-      "guard": {
-        "node_type": "condition",
-        "variable": "rate_within_limits",
-        "operator": "==",
-        "literal_value": false,
-        "left": null,
-        "right": null,
-        "operand": null
-      },
+      "from_state": "Step",
+      "to_state": "Continue_",
+      "event": "continue_performance",
+      "display_label": "continue performance",
+      "guard": null,
       "action": null,
       "source_sentence_ids": [
         "s007"
@@ -327,26 +323,14 @@
     },
     {
       "id": "t008",
-      "from_state": "Step_",
-      "to_state": "Continue",
-      "event": "continue_status",
-      "display_label": "continue status",
-      "guard": null,
-      "action": null,
-      "source_sentence_ids": [
-        "s008"
-      ]
-    },
-    {
-      "id": "t009",
-      "from_state": "Continue",
+      "from_state": "Continue_",
       "to_state": "Terminal",
       "event": "complete",
       "display_label": "complete",
       "guard": null,
       "action": null,
       "source_sentence_ids": [
-        "s008"
+        "s007"
       ]
     }
   ]
